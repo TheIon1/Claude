@@ -1,0 +1,10 @@
+D:\Labs\Tests\ForMS\ForMS\bin\Debug\ForMS.exe.config
+D:\Labs\Tests\ForMS\ForMS\bin\Debug\ForMS.exe
+D:\Labs\Tests\ForMS\ForMS\bin\Debug\ForMS.pdb
+D:\Labs\Tests\ForMS\ForMS\bin\Debug\SmallBasicLibrary.dll
+D:\Labs\Tests\ForMS\ForMS\obj\Debug\ForMS.csprojResolveAssemblyReference.cache
+D:\Labs\Tests\ForMS\ForMS\obj\Debug\ForMS.exe
+D:\Labs\Tests\ForMS\ForMS\obj\Debug\ForMS.pdb
+D:\Labs\Tests\ForMS\MoscowGardenRing\ForMS\bin\Debug\ForMS.exe.config
+D:\Labs\Tests\ForMS\MoscowGardenRing\ForMS\obj\Debug\ForMS.exe
+D:\Labs\Tests\ForMS\MoscowGardenRing\ForMS\obj\Debug\ForMS.pdb
