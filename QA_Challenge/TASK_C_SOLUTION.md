@@ -224,11 +224,26 @@ Tests explicitly cover spec-mentioned edge cases using formula verification:
 
 ## Next Steps for Full E2E Testing
 
-1. **API Integration Test**: Call `GET /pricing/v2/hedged` with test portfolio
-2. **UI Automation**: Selenium/Playwright to verify chart rendering
-3. **PDF Validation**: Assert exported PDF contains hedged TWR to 4dp
-4. **Performance Test**: Validate API latency < 1s (per AC4)
-5. **Audit Log Test**: Confirm `audit.fx_hedge_requests` records events (per AC5)
+✅ **E2E Testing Implemented!** See `E2E_TEST_DESIGN.md` for comprehensive black-box E2E testing approach.
+
+**The E2E solution includes:**
+1. ✅ **Cucumber BDD**: Given/When/Then scenarios for AC1-AC5
+2. ✅ **Playwright**: Browser automation for UI testing
+3. ✅ **REST Assured**: API integration testing (`GET /pricing/v2/hedged`)
+4. ✅ **JDBC**: Database setup and audit log validation
+5. ✅ **PDF Validation**: Apache PDFBox for export verification
+6. ✅ **Full Coverage**: 12+ scenarios covering all acceptance criteria
+
+**Architecture**: Database → API → Web UI (complete black-box flow)
+
+---
+
+## Test Strategy Overview
+
+| Test Level | Scope | Tool | Speed | When to Run |
+|------------|-------|------|-------|-------------|
+| **Unit Tests** (this file) | Formula validation | JUnit | <1s | Every commit |
+| **E2E Tests** (`E2E_TEST_DESIGN.md`) | Full workflow | Cucumber + Playwright | 5-30s | Pre-release |
 
 ---
 

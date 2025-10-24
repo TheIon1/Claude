@@ -44,7 +44,9 @@ Requirements:
   - Where the test would fit in QA process
   - Validation of correctness
 
-**Solution**: See `TASK_C_SOLUTION.md` for complete implementation with Java/JUnit tests.
+**Solutions**:
+- `TASK_C_SOLUTION.md` - Unit-level formula validation (black-box, pure mathematical)
+- `E2E_TEST_DESIGN.md` - **E2E BDD testing** (Database → API → Web with Cucumber + Playwright) ✨ **NEW**
 
 ---
 
