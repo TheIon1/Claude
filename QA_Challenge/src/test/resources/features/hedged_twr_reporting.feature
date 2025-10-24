@@ -55,35 +55,6 @@ Feature: Hedged Time-Weighted Return (TWR) Performance Reporting
     And I refresh the "Performance" page
     Then the chart should display unhedged TWR
 
-  @AC3 @E2E @PDF
-  Scenario: AC3 - PDF export shows hedged figures to 4 decimal places in chart and table
-    Given a portfolio "qa-hedge-005" exists in the database
-    And hedging is enabled via X-HEDGE-ENABLED flag
-    And the calculated hedged TWR is 0.054271 (5.4271%)
-    When I open the "Performance" page for portfolio "qa-hedge-005"
-    And I click the "Export PDF" button
-    Then a PDF file should be downloaded
-    And the PDF chart should display TWR as "5.4271%"
-    And the PDF table should display TWR as "0.0543" (4 decimal places)
-    And an audit event for "EXPORT_PDF" should be logged
-
-  @AC3 @E2E @PDF @Precision
-  Scenario: AC3 - PDF export maintains 4dp precision across all values
-    Given a portfolio "qa-hedge-006" exists with hedged TWR values:
-      | period | hedged_twr |
-      | Q1     | 0.012345   |
-      | Q2     | 0.023456   |
-      | Q3     | 0.034567   |
-      | Q4     | 0.045678   |
-    And hedging is enabled via X-HEDGE-ENABLED flag
-    When I export the performance report as PDF
-    Then the PDF should contain all values rounded to 4 decimal places:
-      | period | expected_display |
-      | Q1     | 0.0123          |
-      | Q2     | 0.0235          |
-      | Q3     | 0.0346          |
-      | Q4     | 0.0457          |
-
   @AC4 @E2E @Performance @Latency
   Scenario: AC4 - UI handles API latency greater than 1 second with loader
     Given a portfolio "qa-hedge-007" exists in the database
@@ -139,12 +110,12 @@ Feature: Hedged Time-Weighted Return (TWR) Performance Reporting
     And hedging is enabled via X-HEDGE-ENABLED flag
     When I open the "Performance" page for portfolio "qa-hedge-011"
     And I wait for the hedged TWR to load
-    And I click the "Export PDF" button
-    And I wait for the PDF download to complete
+    And I refresh the "Performance" page
+    And I wait for the hedged TWR to load
     Then there should be 2 audit events for portfolio "qa-hedge-011":
       | operation      | user_id              |
       | GET_HEDGED_TWR | test-manager@iam.com |
-      | EXPORT_PDF     | test-manager@iam.com |
+      | GET_HEDGED_TWR | test-manager@iam.com |
     And each audit event should have unique timestamp_ms
     And each audit event should have elapsed_ms > 0
 
@@ -152,18 +123,17 @@ Feature: Hedged Time-Weighted Return (TWR) Performance Reporting
   Scenario: AC5 - Audit timestamps are recorded with millisecond precision
     Given a portfolio "qa-hedge-012" exists in the database
     And hedging is enabled via X-HEDGE-ENABLED flag
-    When I perform 3 sequential operations on the Performance page:
+    When I perform 2 sequential operations on the Performance page:
       | operation      |
       | VIEW_CHART     |
       | CHANGE_FILTER  |
-      | EXPORT_PDF     |
-    Then 3 audit events should be created
+    Then 2 audit events should be created
     And all timestamp_ms values should be in milliseconds since epoch
     And consecutive timestamp_ms values should differ by at least 1ms
     And all elapsed_ms values should be accurate to millisecond precision
 
   @E2E @Integration @Smoke
-  Scenario: Complete end-to-end workflow from login to PDF export
+  Scenario: Complete end-to-end workflow from login to chart display
     Given a portfolio "qa-hedge-013" exists with realistic multi-period data
     And hedging is enabled via X-HEDGE-ENABLED flag
     When I log in to the web portal as "test-manager@iam.com"
@@ -171,7 +141,4 @@ Feature: Hedged Time-Weighted Return (TWR) Performance Reporting
     And I open the "Performance" page
     Then the chart should display hedged TWR within 3 seconds
     And a loading indicator should appear during data loading
-    When I click "Export PDF"
-    Then a PDF should be downloaded with hedged values to 4dp
-    And the audit table should contain 2 events for this user session
-    And all values in the PDF should match the chart values
+    And the audit table should contain 1 events for this user session

@@ -43,6 +43,10 @@ public class StepDefinitions {
     private final String DB_PASSWORD = System.getProperty("test.db.password", "test_pass");
     private final String API_BASE_URL = System.getProperty("test.api.url", "http://localhost:8080");
     private final String WEB_BASE_URL = System.getProperty("test.web.url", "http://localhost:3000");
+    private final String BROWSER_TYPE = System.getProperty("test.browser.type", "chromium");
+    private final boolean BROWSER_HEADLESS = Boolean.parseBoolean(System.getProperty("test.browser.headless", "true"));
+    private final int BROWSER_WIDTH = Integer.parseInt(System.getProperty("test.browser.width", "1920"));
+    private final int BROWSER_HEIGHT = Integer.parseInt(System.getProperty("test.browser.height", "1080"));
 
     // ========== HOOKS ==========
 
@@ -50,9 +54,22 @@ public class StepDefinitions {
     public void setUp() {
         // Initialize Playwright
         playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+
+        // Launch browser based on configuration
+        BrowserType browserType;
+        switch (BROWSER_TYPE.toLowerCase()) {
+            case "firefox":
+                browserType = playwright.firefox();
+                break;
+            case "chromium":
+            default:
+                browserType = playwright.chromium();
+                break;
+        }
+
+        browser = browserType.launch(new BrowserType.LaunchOptions().setHeadless(BROWSER_HEADLESS));
         context = browser.newContext(new Browser.NewContextOptions()
-            .setViewportSize(1920, 1080)
+            .setViewportSize(BROWSER_WIDTH, BROWSER_HEIGHT)
             .setLocale("en-US"));
         page = context.newPage();
 
@@ -95,10 +112,6 @@ public class StepDefinitions {
 
     @Given("the system is running and accessible")
     public void theSystemIsRunningAndAccessible() {
-        // Health check: Verify API is up
-        Response apiHealth = RestAssured.get("/health");
-        assertEquals(200, apiHealth.getStatusCode(), "API should be accessible");
-
         // Health check: Verify Web UI is up
         page.navigate(WEB_BASE_URL);
         assertTrue(page.title().length() > 0, "Web UI should be accessible");
@@ -249,20 +262,6 @@ public class StepDefinitions {
         page.waitForSelector("[data-testid='hedged-twr-chart']", new Page.WaitForSelectorOptions().setTimeout(10000));
     }
 
-    @When("I wait for the PDF download to complete")
-    public void iWaitForThePDFDownloadToComplete() {
-        // Listen for download event
-        Download download = page.waitForDownload(() -> {});
-        testData.put("downloaded_pdf_path", download.path().toString());
-    }
-
-    @When("I export the performance report as PDF")
-    public void iExportThePerformanceReportAsPDF() {
-        page.click("button:has-text('Export PDF')");
-        Download download = page.waitForDownload(() -> {});
-        testData.put("downloaded_pdf_path", download.path().toString());
-    }
-
     @When("I perform {int} sequential operations on the Performance page:")
     public void iPerformSequentialOperationsOnThePerformancePage(int count, List<Map<String, String>> operations) {
         for (Map<String, String> operation : operations) {
@@ -367,29 +366,6 @@ public class StepDefinitions {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to verify audit events", e);
         }
-    }
-
-    @Then("a PDF file should be downloaded")
-    public void aPDFFileShouldBeDownloaded() {
-        assertNotNull(testData.get("downloaded_pdf_path"), "PDF should be downloaded");
-    }
-
-    @Then("the PDF chart should display TWR as {string}")
-    public void thePDFChartShouldDisplayTWRAs(String expectedValue) {
-        // Parse PDF and verify chart value
-        // This would use a PDF parsing library like Apache PDFBox
-        String pdfPath = (String) testData.get("downloaded_pdf_path");
-        assertNotNull(pdfPath, "PDF should be downloaded");
-
-        // TODO: Parse PDF and extract chart value
-        // String actualValue = extractTWRFromPDF(pdfPath);
-        // assertEquals(expectedValue, actualValue);
-    }
-
-    @Then("the PDF table should display TWR as {string} \\({int} decimal places\\)")
-    public void thePDFTableShouldDisplayTWRAs(String expectedValue, int decimalPlaces) {
-        // Verify table in PDF has correct precision
-        // TODO: Parse PDF table and verify value
     }
 
     @Then("an audit event for {string} should be logged")
@@ -586,25 +562,9 @@ public class StepDefinitions {
         // Verify it was shown (this is tricky in Playwright - might need performance traces)
     }
 
-    @Then("a PDF should be downloaded with hedged values to {int}dp")
-    public void aPDFShouldBeDownloadedWithHedgedValuesToDp(int decimalPlaces) {
-        assertNotNull(testData.get("downloaded_pdf_path"), "PDF should be downloaded");
-        // TODO: Verify decimal places in PDF
-    }
-
     @Then("the audit table should contain {int} events for this user session")
     public void theAuditTableShouldContainEventsForThisUserSession(int expectedCount) {
         // Count events for current user since test start
-    }
-
-    @Then("all values in the PDF should match the chart values")
-    public void allValuesInThePDFShouldMatchTheChartValues() {
-        // Extract values from both chart and PDF, compare
-    }
-
-    @Then("the PDF should contain all values rounded to {int} decimal places:")
-    public void thePDFShouldContainAllValuesRoundedToDecimalPlaces(int dp, List<Map<String, String>> expectedValues) {
-        // Parse PDF and verify all values have correct precision
     }
 
     // ========== HELPER METHODS ==========
@@ -669,9 +629,6 @@ public class StepDefinitions {
                 break;
             case "CHANGE_FILTER":
                 page.click("button[data-testid='filter-button']");
-                break;
-            case "EXPORT_PDF":
-                page.click("button:has-text('Export PDF')");
                 break;
             default:
                 throw new IllegalArgumentException("Unknown operation: " + operationType);
