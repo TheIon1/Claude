@@ -32,7 +32,7 @@ For each bug, provide:
 - SLA class (P0/P1/P2)
 - Block/Ship decision
 
-### Task C - Finance QA Snippet ⭐ **(CURRENT FOCUS)**
+### Task C - Finance QA Snippet ✅ **(COMPLETED)**
 **Design and describe one automated (or semi-automated) test that verifies the hedged TWR calculation end-to-end.**
 
 Requirements:
@@ -43,6 +43,8 @@ Requirements:
   - Expected value calculation
   - Where the test would fit in QA process
   - Validation of correctness
+
+**Solution**: See `TASK_C_SOLUTION.md` for complete implementation with Java/JUnit tests.
 
 ---
 
@@ -160,7 +162,7 @@ Step 3: Annualize if > 365 days: TWR_ann = (1+TWR)^(365/days) − 1
 - [x] Upload QA Challenge PDF
 - [ ] **Task A**: Release-0 Plan
 - [ ] **Task B**: Defect-Triage Matrix
-- [ ] **Task C**: Finance QA Snippet (Automated Test) ⭐ **CURRENT**
+- [x] **Task C**: Finance QA Snippet (Automated Test) ✅ **COMPLETED**
 
 ---
 
