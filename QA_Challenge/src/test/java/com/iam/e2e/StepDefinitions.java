@@ -59,9 +59,9 @@ public class StepDefinitions {
         BrowserType browserType;
         switch (BROWSER_TYPE.toLowerCase()) {
             case "firefox":
-                browserType = playwright.firefox();  // Must call this method
+                browserType = playwright.firefox();  
             case "chromium":
-                browserType = playwright.chromium(); // Must call this method
+                browserType = playwright.chromium(); // Must call this method because of getProperty
         }
 
         browser = browserType.launch(new BrowserType.LaunchOptions().setHeadless(BROWSER_HEADLESS));
