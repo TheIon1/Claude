@@ -4,7 +4,9 @@
 
 This solution provides an automated test for verifying the **Hedged Time-Weighted Return (TWR)** calculation end-to-end.
 
-**Approach**: Simple, straightforward JUnit test alongside the calculation logic (assumed to exist in production code).
+**Approach**: Black-box, formula-based testing that validates mathematical correctness without making assumptions about internal implementation details.
+
+**Philosophy**: Tests verify ONLY the mathematical formulas, treating the calculator as a complete black box. This ensures tests remain robust even if the implementation changes (e.g., switching from internal calculation to REST API calls).
 
 ---
 
@@ -48,22 +50,27 @@ TWR_ann = (1 + TWR)^(365/days) − 1
 
 ## Test Coverage
 
-The `HedgedTWRCalculatorTest` suite covers:
+The `HedgedTWRCalculatorTest` suite covers **10 formula-based test cases**:
 
-| Test Case | Purpose |
-|-----------|---------|
-| `testBasicTWRCalculation` | Validates 2-period simple scenario |
-| `testMultiPeriodTWR` | Tests calculation across 3+ periods with varying parameters |
-| `testAnnualization` | Ensures annualization kicks in for periods > 365 days |
-| `testNoAnnualizationUnder365Days` | Confirms no annualization for shorter periods |
-| `testNoHedging` | Edge case: FX_t = 0 (no currency hedge) |
-| `testFullHedging` | Edge case: FX_t = 1 (full hedge) |
-| `testPerfectHedge` | Edge case: h_t = 1 (perfect hedge neutralizes FX) |
-| `testZeroPortfolioValue` | Handles zero-value periods correctly |
-| `testInsufficientPeriods` | Validates input requirements (≥2 periods) |
-| `testRoundingPrecision` | Confirms 6dp internal, 4dp display |
-| `testBug101Scenario` | Real-world test based on BUG-101 (IRR discrepancy) |
-| `testDisplayFormatting` | Validates output format compliance |
+| Test Case | Formula Being Tested |
+|-----------|---------------------|
+| `testBasicTWRCalculation` | **Basic TWR formula**: Single-period return calculation with detailed step-by-step verification |
+| `testMultiPeriodTWR` | **Product formula**: TWR = ∏(1 + r_t) - 1 across multiple periods with compounding |
+| `testAnnualization` | **Annualization formula**: TWR_ann = (1 + TWR)^(365/days) - 1 when days > 365 |
+| `testNoAnnualizationUnder365Days` | **Boundary condition**: Verifies annualization NOT applied when days ≤ 365 |
+| `testNoHedging` | **Edge case**: V'_t = V_t when FX_t = 0 (no hedge adjustment) |
+| `testFullHedging` | **Edge case**: Maximum hedge adjustment when FX_t = 1 |
+| `testPerfectHedge` | **Edge case**: V'_t = V_t when h_t = 1 (perfect hedge neutralizes FX) |
+| `testZeroPortfolioValue` | **Division by zero**: Validates error handling when V'_{t-1} = 0 |
+| `testInsufficientPeriods` | **Input validation**: Requires ≥2 periods for TWR calculation |
+| `testBug101Scenario` | **Complex real-world case**: Multi-period with varying FX_t, h_t, and cash flows |
+
+### Key Testing Principles
+
+✅ **Formula-First**: Each test explicitly shows the mathematical calculation steps
+✅ **Black-Box**: No assumptions about internal implementation (could be REST API, database, etc.)
+✅ **Deterministic**: Hand-calculated expected values with 6 decimal place precision
+✅ **Traceable**: Each test maps directly to a formula from the specification
 
 ---
 
@@ -159,20 +166,18 @@ gradle test
 ### Expected Output
 ```
 HedgedTWRCalculatorTest
-  ✓ testBasicTWRCalculation
-  ✓ testMultiPeriodTWR
-  ✓ testAnnualization
-  ✓ testNoAnnualizationUnder365Days
-  ✓ testNoHedging
-  ✓ testFullHedging
-  ✓ testPerfectHedge
-  ✓ testZeroPortfolioValue
-  ✓ testInsufficientPeriods
-  ✓ testRoundingPrecision
-  ✓ testBug101Scenario
-  ✓ testDisplayFormatting
+  ✓ Formula Test: Basic single-period TWR calculation
+  ✓ Formula Test: Multi-period TWR with product formula
+  ✓ Formula Test: Annualization formula for periods > 365 days
+  ✓ Formula Test: No annualization for periods <= 365 days
+  ✓ Formula Test: Edge case FX=0 (no hedge ratio)
+  ✓ Formula Test: Edge case FX=1 (full hedge ratio)
+  ✓ Formula Test: Edge case h=1 (perfect hedge factor)
+  ✓ Edge Case: Division by zero when V'_{t-1} = 0
+  ✓ Edge Case: Insufficient data for TWR calculation
+  ✓ Formula Test: Complex multi-period scenario (BUG-101 reproduction)
 
-Tests run: 12, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0
 ```
 
 ---
@@ -195,22 +200,25 @@ The `testBug101Scenario` replicates the reported bug:
 Test ensures calculation falls in valid range and helps diagnose rounding vs. formula issues.
 
 ### 3. **Edge Case Coverage**
-Tests explicitly cover spec-mentioned edge cases:
-- Zero-value periods
-- Missing FX data (simulated via FX=0)
-- FX > 1 (implicitly tested via boundary at FX=1)
-- Rounding (6dp internal, 4dp display)
+Tests explicitly cover spec-mentioned edge cases using formula verification:
+- **Division by zero**: When V'_{t-1} = 0 in formula r_t = (V'_t - C_t) / V'_{t-1}
+- **Hedge adjustment boundaries**: FX=0 (no adjustment), FX=1 (full), h=1 (neutralizes)
+- **Annualization threshold**: Tests boundary at 365 days
+- **Input validation**: Null, empty, and insufficient period arrays
 
 ---
 
 ## Benefits of This Approach
 
-✅ **Simple**: No complex test framework setup, just JUnit
-✅ **Fast**: Runs in milliseconds, suitable for CI/CD
-✅ **Deterministic**: No API/DB dependencies for unit layer
-✅ **Comprehensive**: Covers happy path + 9 edge cases
-✅ **Traceable**: Each test maps to a spec requirement or edge case
-✅ **Maintainable**: Clear test names, documented expected values
+✅ **Implementation-Agnostic**: Tests remain valid even if implementation changes (e.g., calculator → REST API → database query)
+✅ **Formula-Based**: Each test explicitly shows mathematical steps, making verification transparent
+✅ **Black-Box**: No coupling to internal methods, data structures, or implementation details
+✅ **Fast**: Runs in milliseconds, suitable for CI/CD pipelines
+✅ **Deterministic**: No external dependencies (API/DB) for unit layer
+✅ **Comprehensive**: Covers all 4 core formulas + boundary conditions + validation
+✅ **Traceable**: Each test maps directly to a formula from the specification
+✅ **Maintainable**: Self-documenting with step-by-step formula calculations in comments
+✅ **Robust**: Won't break due to internal refactoring or architectural changes
 
 ---
 

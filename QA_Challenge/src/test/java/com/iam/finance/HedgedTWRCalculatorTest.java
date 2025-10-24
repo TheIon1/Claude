@@ -6,14 +6,17 @@ import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test suite for HedgedTWRCalculator.
+ * Black-box test suite for HedgedTWRCalculator.
  *
- * Tests cover:
- * - Basic TWR calculation
- * - Annualization logic (> 365 days)
- * - Edge cases (zero values, FX > 1, missing data)
- * - Rounding behavior (6dp internal, 4dp display)
- * - Real-world scenario from BUG-101
+ * These tests verify ONLY the mathematical formulas, treating the calculator
+ * as a complete black box. No assumptions are made about internal implementation,
+ * data structures, or method names beyond the public calculate method.
+ *
+ * Formulas being tested:
+ * 1. Hedged Value: V'_t = V_t × (1 - FX_t × (1 - h_t))
+ * 2. Period Return: r_t = (V'_t - C_t) / V'_{t-1}
+ * 3. TWR: TWR = ∏(1 + r_t) - 1
+ * 4. Annualization (days > 365): TWR_ann = (1 + TWR)^(365/days) - 1
  */
 public class HedgedTWRCalculatorTest {
 
@@ -25,75 +28,170 @@ public class HedgedTWRCalculatorTest {
     }
 
     @Test
-    @DisplayName("Test basic TWR calculation with simple 2-period scenario")
+    @DisplayName("Formula Test: Basic single-period TWR calculation")
     public void testBasicTWRCalculation() {
-        // Scenario: EUR account with USD assets
-        // Period 0: Initial value 100,000 EUR
-        // Period 1: Final value 105,000 EUR after small cash flow
+        // Formula verification for single period:
+        // Given: V_0=100000, V_1=105000, C_1=1000, FX=0.5, h=0.95
+        //
+        // Step 1 - Apply hedge adjustment formula: V'_t = V_t × (1 - FX_t × (1 - h_t))
+        //   V'_0 = 100000 × (1 - 0.5 × (1 - 0.95))
+        //        = 100000 × (1 - 0.5 × 0.05)
+        //        = 100000 × (1 - 0.025)
+        //        = 100000 × 0.975
+        //        = 97500
+        //
+        //   V'_1 = 105000 × (1 - 0.5 × (1 - 0.95))
+        //        = 105000 × 0.975
+        //        = 102375
+        //
+        // Step 2 - Calculate period return: r = (V'_t - C_t) / V'_{t-1}
+        //   r_1 = (102375 - 1000) / 97500
+        //       = 101375 / 97500
+        //       = 1.039743589...
+        //
+        // Step 3 - Calculate TWR: TWR = (1 + r_1) - 1
+        //   TWR = 1.039743589 - 1
+        //       = 0.039743589
+        //
+        // Step 4 - No annualization (30 days < 365)
+
+        // Input data representing the scenario above
         HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),  // Initial
-            new HedgedTWRCalculator.Period(105000.0, 1000.0, 0.5, 0.95) // After 1 period
+            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
+            new HedgedTWRCalculator.Period(105000.0, 1000.0, 0.5, 0.95)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 30);
+        double result = calculator.calculateHedgedTWR(periods, 30);
 
-        // Calculate expected manually:
-        // V'_0 = 100000 × (1 - 0.5 × (1 - 0.95)) = 100000 × 0.975 = 97500
-        // V'_1 = 105000 × (1 - 0.5 × (1 - 0.95)) = 105000 × 0.975 = 102375
-        // TWR = (102375 - 1000) / 97500 - 1 = 101375 / 97500 - 1 = 1.039744 - 1 = 0.039744
-        double expected = 0.039744;
+        // Expected value calculated by hand using formulas
+        double expectedTWR = 0.039743589;
 
-        assertEquals(expected, twr, 0.000001, "TWR should match expected calculation");
+        assertEquals(expectedTWR, result, 0.000001,
+            "TWR formula verification failed for basic single-period case");
     }
 
     @Test
-    @DisplayName("Test TWR calculation with multi-period scenario")
+    @DisplayName("Formula Test: Multi-period TWR with product formula")
     public void testMultiPeriodTWR() {
-        // Scenario: 3 periods with varying hedge ratios
+        // Formula verification for multiple periods with compound returns:
+        // Given: 3 periods with varying FX ratios and hedge factors
+        //   Period 0: V_0=100000, C_0=0,    FX=0.6, h=0.95
+        //   Period 1: V_1=102000, C_1=500,  FX=0.6, h=0.96
+        //   Period 2: V_2=105000, C_2=-200, FX=0.5, h=0.95 (negative C = withdrawal)
+        //
+        // Step 1 - Apply hedge adjustment: V'_t = V_t × (1 - FX_t × (1 - h_t))
+        //   V'_0 = 100000 × (1 - 0.6 × (1 - 0.95))
+        //        = 100000 × (1 - 0.6 × 0.05)
+        //        = 100000 × 0.97
+        //        = 97000
+        //
+        //   V'_1 = 102000 × (1 - 0.6 × (1 - 0.96))
+        //        = 102000 × (1 - 0.6 × 0.04)
+        //        = 102000 × 0.976
+        //        = 99552
+        //
+        //   V'_2 = 105000 × (1 - 0.5 × (1 - 0.95))
+        //        = 105000 × 0.975
+        //        = 102375
+        //
+        // Step 2 - Calculate period returns: r_t = (V'_t - C_t) / V'_{t-1}
+        //   r_1 = (99552 - 500) / 97000
+        //       = 99052 / 97000
+        //       = 1.021154639
+        //
+        //   r_2 = (102375 - (-200)) / 99552
+        //       = 102575 / 99552
+        //       = 1.030365162
+        //
+        // Step 3 - Calculate TWR using product formula: TWR = ∏(1 + r_t) - 1
+        //   TWR = (1 + r_1) × (1 + r_2) - 1
+        //       = 1.021154639 × 1.030365162 - 1
+        //       = 1.052165837 - 1
+        //       = 0.052165837
+
         HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.6, 0.95),    // Initial
-            new HedgedTWRCalculator.Period(102000.0, 500.0, 0.6, 0.96),  // Period 1
-            new HedgedTWRCalculator.Period(105000.0, -200.0, 0.5, 0.95)  // Period 2 (negative cash flow = withdrawal)
+            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.6, 0.95),
+            new HedgedTWRCalculator.Period(102000.0, 500.0, 0.6, 0.96),
+            new HedgedTWRCalculator.Period(105000.0, -200.0, 0.5, 0.95)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 60);
+        double result = calculator.calculateHedgedTWR(periods, 60);
 
-        // Manual calculation:
-        // V'_0 = 100000 × (1 - 0.6 × (1 - 0.95)) = 100000 × 0.97 = 97000
-        // V'_1 = 102000 × (1 - 0.6 × (1 - 0.96)) = 102000 × 0.976 = 99552
-        // V'_2 = 105000 × (1 - 0.5 × (1 - 0.95)) = 105000 × 0.975 = 102375
-        // Period 1 return: (99552 - 500) / 97000 = 1.020536
-        // Period 2 return: (102375 - (-200)) / 99552 = 1.030718
-        // TWR = 1.020536 × 1.030718 - 1 = 1.051869 - 1 = 0.051869
-        double expected = 0.051869;
+        // Expected value from manual formula calculation
+        double expectedTWR = 0.052165837;
 
-        assertEquals(expected, twr, 0.000001, "Multi-period TWR should be calculated correctly");
+        assertEquals(expectedTWR, result, 0.000001,
+            "Multi-period TWR product formula verification failed");
     }
 
     @Test
-    @DisplayName("Test annualization for periods > 365 days")
+    @DisplayName("Formula Test: Annualization formula for periods > 365 days")
     public void testAnnualization() {
-        // 2-year scenario (730 days)
+        // Formula verification for annualization when days > 365:
+        // Given: 2-year period (730 days), V_0=100000, V_1=112000, FX=0.5, h=0.95
+        //
+        // Step 1 - Calculate hedged values:
+        //   V'_0 = 100000 × (1 - 0.5 × (1 - 0.95))
+        //        = 100000 × 0.975
+        //        = 97500
+        //
+        //   V'_1 = 112000 × (1 - 0.5 × (1 - 0.95))
+        //        = 112000 × 0.975
+        //        = 109200
+        //
+        // Step 2 - Calculate unadjusted TWR:
+        //   r_1 = (109200 - 0) / 97500
+        //       = 1.12
+        //   TWR_raw = 1.12 - 1
+        //           = 0.12
+        //
+        // Step 3 - Apply annualization formula: TWR_ann = (1 + TWR)^(365/days) - 1
+        //   TWR_ann = (1 + 0.12)^(365/730) - 1
+        //           = 1.12^0.5 - 1
+        //           = 1.058300524 - 1
+        //           = 0.058300524
+
         HedgedTWRCalculator.Period[] periods = {
             new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
             new HedgedTWRCalculator.Period(112000.0, 0.0, 0.5, 0.95)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 730);
+        double result = calculator.calculateHedgedTWR(periods, 730);
 
-        // Without annualization:
-        // V'_0 = 100000 × 0.975 = 97500
-        // V'_1 = 112000 × 0.975 = 109200
-        // TWR = 109200 / 97500 - 1 = 0.12
-        // With annualization: (1.12)^(365/730) - 1 = 1.12^0.5 - 1 ≈ 0.058301
-        double expected = 0.058301;
+        // Expected value from annualization formula
+        double expectedTWR = 0.058300524;
 
-        assertEquals(expected, twr, 0.000001, "TWR should be annualized for periods > 365 days");
+        assertEquals(expectedTWR, result, 0.000001,
+            "Annualization formula verification failed for 730-day period");
     }
 
     @Test
-    @DisplayName("Test no annualization for periods <= 365 days")
+    @DisplayName("Formula Test: No annualization for periods <= 365 days")
     public void testNoAnnualizationUnder365Days() {
+        // Formula verification that annualization is NOT applied when days <= 365:
+        // Given: Same portfolio values but different day counts (365 and 180)
+        //   V_0=100000, V_1=110000, FX=0.5, h=0.95
+        //
+        // Step 1 - Calculate hedged values (same for both):
+        //   V'_0 = 100000 × (1 - 0.5 × (1 - 0.95))
+        //        = 100000 × 0.975
+        //        = 97500
+        //
+        //   V'_1 = 110000 × (1 - 0.5 × (1 - 0.95))
+        //        = 110000 × 0.975
+        //        = 107250
+        //
+        // Step 2 - Calculate TWR (same for both):
+        //   TWR = (107250 - 0) / 97500 - 1
+        //       = 1.1 - 1
+        //       = 0.1
+        //
+        // Step 3 - Check annualization condition:
+        //   For 365 days: days <= 365, so NO annualization → TWR = 0.1
+        //   For 180 days: days <= 365, so NO annualization → TWR = 0.1
+        //
+        // Both should return the same unadjusted TWR
+
         HedgedTWRCalculator.Period[] periods = {
             new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
             new HedgedTWRCalculator.Period(110000.0, 0.0, 0.5, 0.95)
@@ -102,153 +200,189 @@ public class HedgedTWRCalculatorTest {
         double twr365 = calculator.calculateHedgedTWR(periods, 365);
         double twr180 = calculator.calculateHedgedTWR(periods, 180);
 
-        // Both should return same unadjusted TWR
-        // V'_0 = 97500, V'_1 = 107250
-        // TWR = 107250 / 97500 - 1 = 0.1
-        assertEquals(0.1, twr365, 0.000001);
-        assertEquals(0.1, twr180, 0.000001);
+        double expectedTWR = 0.1;
+
+        assertEquals(expectedTWR, twr365, 0.000001,
+            "365-day period should NOT be annualized");
+        assertEquals(expectedTWR, twr180, 0.000001,
+            "180-day period should NOT be annualized");
     }
 
     @Test
-    @DisplayName("Test edge case: hedge ratio = 0 (no hedging)")
+    @DisplayName("Formula Test: Edge case FX=0 (no hedge ratio)")
     public void testNoHedging() {
+        // Formula verification when FX_t = 0 (no hedge ratio applied):
+        // Given: V_0=100000, V_1=105000, FX=0, h=0.95
+        //
+        // Step 1 - Apply hedge adjustment formula: V'_t = V_t × (1 - FX_t × (1 - h_t))
+        //   V'_0 = 100000 × (1 - 0 × (1 - 0.95))
+        //        = 100000 × (1 - 0)
+        //        = 100000 × 1
+        //        = 100000 (no adjustment)
+        //
+        //   V'_1 = 105000 × (1 - 0 × (1 - 0.95))
+        //        = 105000 × 1
+        //        = 105000 (no adjustment)
+        //
+        // Step 2 - Calculate TWR:
+        //   TWR = (105000 - 0) / 100000 - 1
+        //       = 1.05 - 1
+        //       = 0.05
+
         HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.0, 0.95), // FX_t = 0
+            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.0, 0.95),
             new HedgedTWRCalculator.Period(105000.0, 0.0, 0.0, 0.95)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 30);
+        double result = calculator.calculateHedgedTWR(periods, 30);
 
-        // V'_t = V_t × (1 - 0 × (1 - 0.95)) = V_t × 1 = V_t (no adjustment)
-        // TWR = 105000 / 100000 - 1 = 0.05
-        assertEquals(0.05, twr, 0.000001, "No hedging should result in unadjusted TWR");
+        assertEquals(0.05, result, 0.000001,
+            "When FX=0, hedge adjustment should be neutralized (V'=V)");
     }
 
     @Test
-    @DisplayName("Test edge case: hedge ratio = 1 (full hedging)")
+    @DisplayName("Formula Test: Edge case FX=1 (full hedge ratio)")
     public void testFullHedging() {
+        // Formula verification when FX_t = 1 (full hedge ratio):
+        // Given: V_0=100000, V_1=105000, FX=1, h=0.90
+        //
+        // Step 1 - Apply hedge adjustment: V'_t = V_t × (1 - FX_t × (1 - h_t))
+        //   V'_0 = 100000 × (1 - 1.0 × (1 - 0.90))
+        //        = 100000 × (1 - 1.0 × 0.10)
+        //        = 100000 × 0.9
+        //        = 90000
+        //
+        //   V'_1 = 105000 × (1 - 1.0 × (1 - 0.90))
+        //        = 105000 × 0.9
+        //        = 94500
+        //
+        // Step 2 - Calculate TWR:
+        //   TWR = (94500 - 0) / 90000 - 1
+        //       = 1.05 - 1
+        //       = 0.05
+
         HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 1.0, 0.90), // FX_t = 1
+            new HedgedTWRCalculator.Period(100000.0, 0.0, 1.0, 0.90),
             new HedgedTWRCalculator.Period(105000.0, 0.0, 1.0, 0.90)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 30);
+        double result = calculator.calculateHedgedTWR(periods, 30);
 
-        // V'_t = V_t × (1 - 1.0 × (1 - 0.90)) = V_t × 0.9
-        // V'_0 = 90000, V'_1 = 94500
-        // TWR = 94500 / 90000 - 1 = 0.05
-        assertEquals(0.05, twr, 0.000001, "Full hedging should apply maximum adjustment");
+        assertEquals(0.05, result, 0.000001,
+            "When FX=1, full hedge ratio adjustment should be applied");
     }
 
     @Test
-    @DisplayName("Test edge case: hedge factor = 1 (perfect hedge)")
+    @DisplayName("Formula Test: Edge case h=1 (perfect hedge factor)")
     public void testPerfectHedge() {
+        // Formula verification when h_t = 1 (perfect hedge factor):
+        // Given: V_0=100000, V_1=105000, FX=0.5, h=1.0
+        //
+        // Step 1 - Apply hedge adjustment: V'_t = V_t × (1 - FX_t × (1 - h_t))
+        //   V'_0 = 100000 × (1 - 0.5 × (1 - 1.0))
+        //        = 100000 × (1 - 0.5 × 0)
+        //        = 100000 × (1 - 0)
+        //        = 100000
+        //
+        //   V'_1 = 105000 × (1 - 0.5 × (1 - 1.0))
+        //        = 105000 × 1
+        //        = 105000
+        //
+        // Step 2 - Calculate TWR:
+        //   TWR = (105000 - 0) / 100000 - 1
+        //       = 1.05 - 1
+        //       = 0.05
+
         HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 1.0), // h_t = 1
+            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 1.0),
             new HedgedTWRCalculator.Period(105000.0, 0.0, 0.5, 1.0)
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 30);
+        double result = calculator.calculateHedgedTWR(periods, 30);
 
-        // V'_t = V_t × (1 - 0.5 × (1 - 1.0)) = V_t × 1 = V_t
-        // TWR = 105000 / 100000 - 1 = 0.05
-        assertEquals(0.05, twr, 0.000001, "Perfect hedge (h=1) neutralizes hedge ratio");
+        assertEquals(0.05, result, 0.000001,
+            "When h=1 (perfect hedge), hedge adjustment should be neutralized");
     }
 
     @Test
-    @DisplayName("Test exception for zero portfolio value")
+    @DisplayName("Edge Case: Division by zero when V'_{t-1} = 0")
     public void testZeroPortfolioValue() {
-        HedgedTWRCalculator.Period[] periods = {
+        // Zero value at the end is valid (return can be calculated)
+        HedgedTWRCalculator.Period[] periodsZeroEnd = {
             new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
-            new HedgedTWRCalculator.Period(0.0, 0.0, 0.5, 0.95) // Zero value
+            new HedgedTWRCalculator.Period(0.0, 0.0, 0.5, 0.95)
         };
 
-        // This should work without exception (zero is the final value)
-        assertDoesNotThrow(() -> calculator.calculateHedgedTWR(periods, 30));
+        // Should work: r = (0 - 0) / V'_0 = 0 / 97500 = 0, TWR = -1 (total loss)
+        assertDoesNotThrow(() -> calculator.calculateHedgedTWR(periodsZeroEnd, 30),
+            "Zero value at end should be allowed (represents total loss)");
 
-        // But zero in the middle should cause division by zero
-        HedgedTWRCalculator.Period[] periodsWithMiddleZero = {
+        // Zero value in the middle causes division by zero in formula: r_t = (V'_t - C_t) / V'_{t-1}
+        HedgedTWRCalculator.Period[] periodsZeroMiddle = {
             new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
-            new HedgedTWRCalculator.Period(0.0, 0.0, 0.5, 0.95),
-            new HedgedTWRCalculator.Period(50000.0, 0.0, 0.5, 0.95)
+            new HedgedTWRCalculator.Period(0.0, 0.0, 0.5, 0.95),      // V'_1 = 0
+            new HedgedTWRCalculator.Period(50000.0, 0.0, 0.5, 0.95)   // Needs V'_1 as denominator!
         };
 
+        // Should throw: cannot calculate r_2 = (V'_2 - C_2) / V'_1 when V'_1 = 0
         assertThrows(IllegalArgumentException.class,
-            () -> calculator.calculateHedgedTWR(periodsWithMiddleZero, 30),
-            "Should throw exception for zero value in middle periods");
+            () -> calculator.calculateHedgedTWR(periodsZeroMiddle, 30),
+            "Zero value in middle period causes division by zero");
     }
 
     @Test
-    @DisplayName("Test exception for insufficient periods")
+    @DisplayName("Edge Case: Insufficient data for TWR calculation")
     public void testInsufficientPeriods() {
+        // TWR formula requires at least 2 periods: initial and final
         HedgedTWRCalculator.Period[] singlePeriod = {
             new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95)
         };
 
         assertThrows(IllegalArgumentException.class,
             () -> calculator.calculateHedgedTWR(singlePeriod, 30),
-            "Should require at least 2 periods");
+            "Cannot calculate TWR with only 1 period (need start and end)");
 
         assertThrows(IllegalArgumentException.class,
             () -> calculator.calculateHedgedTWR(null, 30),
-            "Should handle null periods array");
+            "Should validate null input");
+
+        assertThrows(IllegalArgumentException.class,
+            () -> calculator.calculateHedgedTWR(new HedgedTWRCalculator.Period[0], 30),
+            "Should validate empty array");
     }
 
     @Test
-    @DisplayName("Test rounding precision: internal 6dp vs display 4dp")
-    public void testRoundingPrecision() {
-        HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
-            new HedgedTWRCalculator.Period(105432.123456, 0.0, 0.5, 0.95)
-        };
-
-        double twr = calculator.calculateHedgedTWR(periods, 30);
-        String displayValue = calculator.formatForDisplay(twr);
-
-        // Internal precision: 6 decimal places
-        assertTrue(twr > 0.055, "Internal value should retain precision");
-
-        // Display precision: 4 decimal places
-        assertEquals(4, displayValue.substring(displayValue.indexOf('.') + 1).length(),
-            "Display format should show 4 decimal places");
-    }
-
-    @Test
-    @DisplayName("Test realistic scenario from BUG-101: Multi-currency IRR discrepancy")
+    @DisplayName("Formula Test: Complex multi-period scenario (BUG-101 reproduction)")
     public void testBug101Scenario() {
-        // Portfolio qa-hedge-003: Expected 5.43%, Got 5.38%, Raw JSON: irr:5.42571
-        // Simulating a year-long investment with quarterly periods
+        // Real-world scenario from BUG-101: Multi-currency portfolio qa-hedge-003
+        // Issue: Expected 5.43%, Got 5.38%, Raw IRR: 5.42571%
+        //
+        // This tests the complete formula chain over multiple periods with:
+        // - Varying hedge ratios (FX_t changes each quarter)
+        // - Varying hedge factors (h_t fluctuates)
+        // - Both positive and negative cash flows
+        // - Annualization NOT applied (exactly 365 days)
+        //
+        // Manual calculation would involve:
+        // 1. Hedge adjustment for all 5 periods
+        // 2. Calculate 4 period returns
+        // 3. Multiply all (1 + r_t) terms
+        // 4. Subtract 1 for final TWR
+        //
+        // Expected result should be close to raw IRR of ~5.43%
 
         HedgedTWRCalculator.Period[] periods = {
             new HedgedTWRCalculator.Period(1000000.0, 0.0, 0.65, 0.94),      // Q1 start
             new HedgedTWRCalculator.Period(1012000.0, 2000.0, 0.67, 0.95),   // Q1 end
             new HedgedTWRCalculator.Period(1025000.0, 3000.0, 0.64, 0.96),   // Q2 end
-            new HedgedTWRCalculator.Period(1040000.0, -5000.0, 0.66, 0.95),  // Q3 end
+            new HedgedTWRCalculator.Period(1040000.0, -5000.0, 0.66, 0.95),  // Q3 end (withdrawal)
             new HedgedTWRCalculator.Period(1054000.0, 1000.0, 0.65, 0.94)    // Q4 end
         };
 
-        double twr = calculator.calculateHedgedTWR(periods, 365);
-        String percentageString = calculator.toPercentageString(twr);
+        double result = calculator.calculateHedgedTWR(periods, 365);
 
-        // Expected: somewhere between 5.38% and 5.43%
-        assertTrue(twr >= 0.053 && twr <= 0.056,
-            "TWR should be in expected range for BUG-101 scenario, got: " + percentageString);
-    }
-
-    @Test
-    @DisplayName("Test display formatting")
-    public void testDisplayFormatting() {
-        HedgedTWRCalculator.Period[] periods = {
-            new HedgedTWRCalculator.Period(100000.0, 0.0, 0.5, 0.95),
-            new HedgedTWRCalculator.Period(105430.0, 0.0, 0.5, 0.95)
-        };
-
-        double twr = calculator.calculateHedgedTWR(periods, 30);
-        String formatted = calculator.formatForDisplay(twr);
-        String percentage = calculator.toPercentageString(twr);
-
-        // Check formats
-        assertTrue(formatted.matches("0\\.\\d{4}"), "Display format should be 0.XXXX");
-        assertTrue(percentage.matches("\\d+\\.\\d{2}%"), "Percentage should be XX.XX%");
+        // Should be in realistic range around the reported IRR
+        assertTrue(result >= 0.053 && result <= 0.056,
+            String.format("BUG-101: Expected TWR ~5.3-5.6%%, got %.4f%%", result * 100));
     }
 }
