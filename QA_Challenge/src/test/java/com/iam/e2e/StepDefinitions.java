@@ -48,6 +48,14 @@ public class StepDefinitions {
     private final int BROWSER_WIDTH = Integer.parseInt(System.getProperty("test.browser.width", "1920"));
     private final int BROWSER_HEIGHT = Integer.parseInt(System.getProperty("test.browser.height", "1080"));
 
+    // Ops configuration (feature flags managed via properties, NOT database)
+    private final String HEDGE_FLAG_NAME = System.getProperty("test.feature.hedge.flag", "X-HEDGE-ENABLED");
+
+    // Runtime flag state (mutable for test scenarios)
+    // In production, Ops would manage this via config management system (Consul, etcd, config files)
+    // For tests, we use System properties that can be toggled during test execution
+    private boolean hedgingEnabled = Boolean.parseBoolean(System.getProperty("test.feature.hedge.enabled", "true"));
+
     // ========== HOOKS ==========
 
     @Before
@@ -189,12 +197,22 @@ public class StepDefinitions {
 
     @Given("hedging is enabled via X-HEDGE-ENABLED flag")
     public void hedgingIsEnabledViaFlag() {
-        setConfigFlag("X-HEDGE-ENABLED", true);
+        setConfigFlag(HEDGE_FLAG_NAME, true);
     }
 
     @Given("hedging is disabled via X-HEDGE-ENABLED flag")
     public void hedgingIsDisabledViaFlag() {
-        setConfigFlag("X-HEDGE-ENABLED", false);
+        setConfigFlag(HEDGE_FLAG_NAME, false);
+    }
+
+    @Given("hedging is enabled")
+    public void hedgingIsEnabled() {
+        setConfigFlag(HEDGE_FLAG_NAME, true);
+    }
+
+    @Given("hedging is disabled")
+    public void hedgingIsDisabled() {
+        setConfigFlag(HEDGE_FLAG_NAME, false);
     }
 
     @Given("the calculated hedged TWR is {double} \\({string}\\)")
@@ -282,7 +300,17 @@ public class StepDefinitions {
 
     @When("I disable hedging via X-HEDGE-ENABLED flag")
     public void iDisableHedgingViaFlag() {
-        setConfigFlag("X-HEDGE-ENABLED", false);
+        setConfigFlag(HEDGE_FLAG_NAME, false);
+    }
+
+    @When("I enable hedging")
+    public void iEnableHedging() {
+        setConfigFlag(HEDGE_FLAG_NAME, true);
+    }
+
+    @When("I disable hedging")
+    public void iDisableHedging() {
+        setConfigFlag(HEDGE_FLAG_NAME, false);
     }
 
     // ========== ASSERTIONS (THEN) ==========
@@ -567,20 +595,25 @@ public class StepDefinitions {
     // ========== HELPER METHODS ==========
 
     private void setConfigFlag(String flagName, boolean enabled) {
-        // This would either:
-        // 1. Update config in database
-        // 2. Call admin API endpoint
-        // 3. Set environment variable via test proxy
+        // Ops manages feature flags via config management systems (NOT database)
+        // In production: Consul, etcd, Kubernetes ConfigMaps, or config files
+        // For E2E tests: We simulate this by setting runtime properties
 
-        try {
-            String sql = "UPDATE ops_config SET enabled = ? WHERE flag_name = ?";
-            PreparedStatement stmt = dbConnection.prepareStatement(sql);
-            stmt.setBoolean(1, enabled);
-            stmt.setString(2, flagName);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to set config flag", e);
+        if (HEDGE_FLAG_NAME.equals(flagName)) {
+            hedgingEnabled = enabled;
+            // In production, this would trigger a config reload or service notification
+            // For testing, we directly update the in-memory flag state
+            System.setProperty("test.feature.hedge.enabled", String.valueOf(enabled));
+        } else {
+            throw new IllegalArgumentException("Unknown feature flag: " + flagName);
         }
+    }
+
+    private boolean isHedgingEnabled() {
+        // Check current flag state
+        // In production, this would query the config management system
+        // For tests, we read from our instance variable
+        return hedgingEnabled;
     }
 
     private void verifyAuditEventExists(String portfolioId, String userId) {
