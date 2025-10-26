@@ -1,0 +1,95 @@
+{\rtf1\ansi\ansicpg1251\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww15680\viewh9580\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 Only web(by us)\
+\
+WebCo(?)Name of the web page maybe. \
+Vite(frontend building tool) + typescript(probably handles api responses)\
+ProdX - only API dockerImage, no internal access itself. Need to understand what reliability do we expect, is it 24/7, how many calls, is this API scalable or is it enough to have only 1. Probably have built in tooling to parse through posgress DB. Do we rely on that? At least how much do we change our DB management\
+Postgress - DB with data, that prodX will take. How this data will occur - unknown for us. Is there possible conflicts or some Rabbit MQ manages writing/reading of our DB.\
+\
+\
+OpenShift or AWS EKS for devops and scaling.\
+\
+Release cadence first Tuesday - is it global, or can be managed by users? Maybe accessible through different domain\
+\
+\
+Signed-off = production ready. ProdX probably doesn\'92t have this since we want latest(?). Important that we ask them for migration scripts\
+\
+Go no go through what platform? Does ITOps have it tow so we can show it, or we need another one internal? Verify ticket closure - probably by ops. If by Vendor - does they have access to our system?\
+\
+Monitor dashboards - which one? Like grafana, so we understand highload time, or some business, so we understand that there is not much changes in analytics <-> needed changes for analytics\
+\
+Post-deploy checks\
+\
+Follow up - how to understand which defects are in followup and which are no-go? \
+\
+Retro with who?\
+\
+Vendor tickets probably by their side.\
+\
+\
+IAM managers - are there different roles?\
+\
+Actually maybe new backend code needed because of load on DB or synch/asynch waits.\
+\
+Given when then is there some BDD involved in smoke?\
+\
+Actually bad BDD\
+\
+OPS config flag? How we are sure that current version is in config? Much better to have some A/B or UI. \
+\'abToday\'bb in test is possible break point or point for flacky tests\
+Time for UI noted, but can be different with different connection. Do we want to show IAM \
+Stored where? Even if we didn\'92t have any changes in backend we can\'92t be sure that what creates this audit can parse through new \'ablive\'bb feature.\
+\
+\
+API Call existing endpoint GET /pricing/v2/hedged (already GA).\
+FE Add toggle logic, loader, chart values, PDF template tweak. - can we handle template tweak solely on UI? Ask WebCo\
+Ops Introduce flag X-HEDGE-ENABLED;\
+\
+\
+ProdX sandbox quota \'96 only 10 test portfolios; resets nightly at 02:00 UTC. - we need to ask unlimited or access for more? Make sure that our dev+int both doesn\'92t exceed 10, or each one? Does ProdX also have dev_test, or this constraint made because we ask for their production api?\
+\
+\'95 WebCo cadence \'96 merges to main Tuesday & Friday 16:00 CET. Notably, WebCo is an external\
+consultant.\
+\
+\
+\'95 Ops release window \'96 one release per month (first Tuesday, 18:00-20:00 CET).\
+\
+\'95 Logging \'96 FE logs in Loki via X-Request-ID; API logs stdout; vendor has no remote access.\
+\
+\
+\'95 Browser mix \'96 85 % Chrome, 10 % Edge, 5 % Safari among IAM users (no IE). - make sure to provide this info to products, \
+\
+\
+\'95 SLA \'96 P0 = block release; P1 = ship with workaround; P2 = sprint backlog.\
+\
+Is this internal SLA or external?\
+\
+Wrong IRR on PDF for multi-\
+currency account\
+\
+Steps: portfolio qa-hedge-003, hedged flag ON, export PDF.\
+Expected 5.43 %, got 5.38 %. Raw JSON shows irr:5.42571.\
+\
+502 from /pricing/v2/hedged.  \
+spikes > 30 % \
+\
+Observed 21-Jul-2025 17:40-18:10 UTC. Logs show upstream\
+reset.\
+\
+Monday - 20 CET\
+\
+\
+\
+Dashboard caches stale data after\
+blue-green switch\
+After release-223, some users see yesterday\'92s values until hard\
+refresh. Cloud-flare page-rule suspected.\
+\
+\
+How long Dev->test test-prod takes?}
