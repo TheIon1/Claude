@@ -72,17 +72,87 @@
             font-size: 14px;
             color: #999;
         }
+
+        .loading {
+            color: #999;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+            background-color: #fadbd8;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+
+        .api-message {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-weight: bold;
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <span class="emoji">👋</span>
-        <h1>Hello World!</h1>
-        <p>Welcome to your GitHub Pages deployment</p>
-        <p>This site is hosted on GitHub's free service and is publicly accessible</p>
+        <h1 id="title">Hello World!</h1>
+        <p>Welcome to the full-stack deployment</p>
+        <p id="subtitle" class="loading">Loading message from backend...</p>
+        <div class="api-message" id="api-message" style="display: none;"></div>
         <div class="info">
-            <p>No login required • No hosting fees • Deployed instantly</p>
+            <p>Frontend: GitHub Pages • Backend: Vercel • Database: API</p>
         </div>
     </div>
+
+    <script>
+        // Fetch message from Vercel backend API
+        async function fetchMessage() {
+            try {
+                // Try multiple possible API URLs
+                const apis = [
+                    '/api/message',  // Local/same origin
+                    'https://api.example.com/api/message',  // Will be replaced with your Vercel URL
+                ];
+
+                // First try local endpoint
+                const response = await fetch('/api/message');
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Update the subtitle with the message from database
+                document.getElementById('subtitle').innerHTML = `Message from backend database: <strong>"${data.message}"</strong>`;
+                document.getElementById('subtitle').classList.remove('loading');
+
+                // Show API details
+                const apiMessageDiv = document.getElementById('api-message');
+                apiMessageDiv.style.display = 'block';
+                apiMessageDiv.innerHTML = `
+                    <div style="font-size: 14px; color: #666;">
+                        Backend Response: ${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error fetching message:', error);
+                document.getElementById('subtitle').innerHTML = 'Welcome to the full-stack deployment';
+                document.getElementById('subtitle').classList.remove('loading');
+
+                const errorDiv = document.getElementById('api-message');
+                errorDiv.classList.add('error');
+                errorDiv.style.display = 'block';
+                errorDiv.innerHTML = `API Error: ${error.message}<br>Make sure the backend is deployed on Vercel.`;
+            }
+        }
+
+        // Fetch message when page loads
+        document.addEventListener('DOMContentLoaded', fetchMessage);
+    </script>
 </body>
 </html>
