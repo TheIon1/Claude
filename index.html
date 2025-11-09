@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="vercel-url" content="https://claude-silk-six.vercel.app">
+    <meta name="api-key" content="test-key-12345">
     <title>Hello World</title>
     <style>
         * {
@@ -125,6 +126,9 @@
                     }
                 }
 
+                // Get API key from meta tag
+                const apiKey = document.querySelector('meta[name="api-key"]')?.getAttribute('content');
+
                 console.log('Fetching from:', apiUrl);
 
                 const response = await fetch(apiUrl, {
@@ -132,7 +136,8 @@
                     mode: 'cors',
                     credentials: 'omit',
                     headers: {
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        ...(apiKey && { 'X-API-Key': apiKey })
                     }
                 });
 

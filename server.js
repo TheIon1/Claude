@@ -17,8 +17,25 @@ const database = {
   message: "hello world"
 };
 
+// API key from environment variable
+const API_KEY = process.env.API_KEY || 'test-key-12345';
+
+// Middleware to check API key
+const requireApiKey = (req, res, next) => {
+  const providedKey = req.headers['x-api-key'] || req.query.key;
+
+  if (!providedKey || providedKey !== API_KEY) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Invalid or missing API key'
+    });
+  }
+
+  next();
+};
+
 // REST API endpoint to get the message
-app.get('/api/message', (req, res) => {
+app.get('/api/message', requireApiKey, (req, res) => {
   res.json({
     success: true,
     message: database.message,
@@ -26,7 +43,7 @@ app.get('/api/message', (req, res) => {
   });
 });
 
-// Health check endpoint
+// Health check endpoint (no auth required)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
