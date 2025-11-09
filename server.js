@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 
@@ -12,10 +13,46 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Simple in-memory "database"
-const database = {
-  message: "hello world"
-};
+// MongoDB configuration
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/hello-world';
+const DB_NAME = 'hello-world';
+const COLLECTION_NAME = 'messages';
+
+let mongoClient;
+let db;
+
+// Initialize MongoDB connection
+async function initMongoDB() {
+  try {
+    mongoClient = new MongoClient(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+    });
+
+    await mongoClient.connect();
+    db = mongoClient.db(DB_NAME);
+    console.log('Connected to MongoDB');
+
+    // Initialize database with sample data if empty
+    const collection = db.collection(COLLECTION_NAME);
+    const existingMessage = await collection.findOne({});
+    if (!existingMessage) {
+      await collection.insertOne({
+        _id: 'default',
+        message: 'hello world',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      console.log('Initialized MongoDB with default message');
+    }
+  } catch (error) {
+    console.error('MongoDB connection error:', error.message);
+  }
+}
+
+// Initialize MongoDB on startup
+initMongoDB();
 
 // API key from environment variable
 const API_KEY = process.env.API_KEY || 'test-key-12345';
@@ -34,13 +71,40 @@ const requireApiKey = (req, res, next) => {
   next();
 };
 
-// REST API endpoint to get the message
-app.get('/api/message', requireApiKey, (req, res) => {
-  res.json({
-    success: true,
-    message: database.message,
-    timestamp: new Date().toISOString()
-  });
+// REST API endpoint to get the message from MongoDB
+app.get('/api/message', requireApiKey, async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Database not connected'
+      });
+    }
+
+    const collection = db.collection(COLLECTION_NAME);
+    const messageDoc = await collection.findOne({ _id: 'default' });
+
+    if (!messageDoc) {
+      return res.status(404).json({
+        success: false,
+        error: 'Message not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: messageDoc.message,
+      timestamp: new Date().toISOString(),
+      source: 'MongoDB'
+    });
+  } catch (error) {
+    console.error('Error fetching message:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
 });
 
 // Health check endpoint (no auth required)
