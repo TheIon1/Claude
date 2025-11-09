@@ -27,12 +27,16 @@ async function initMongoDB() {
     mongoClient = new MongoClient(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000, // Increased to 30 seconds for Vercel cold starts
+      socketTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+      maxPoolSize: 10,
     });
 
+    console.log('Attempting to connect to MongoDB...');
     await mongoClient.connect();
     db = mongoClient.db(DB_NAME);
-    console.log('Connected to MongoDB');
+    console.log('✓ Connected to MongoDB successfully');
 
     // Initialize database with sample data if empty
     const collection = db.collection(COLLECTION_NAME);
@@ -44,10 +48,17 @@ async function initMongoDB() {
         createdAt: new Date(),
         updatedAt: new Date()
       });
-      console.log('Initialized MongoDB with default message');
+      console.log('✓ Initialized MongoDB with default message');
+    } else {
+      console.log('✓ MongoDB already has data');
     }
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
+    console.error('✗ MongoDB connection error:', error.message);
+    // Try to reconnect after 5 seconds
+    setTimeout(() => {
+      console.log('Retrying MongoDB connection...');
+      initMongoDB();
+    }, 5000);
   }
 }
 
@@ -109,7 +120,22 @@ app.get('/api/message', requireApiKey, async (req, res) => {
 
 // Health check endpoint (no auth required)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    mongodb: db ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Debug endpoint - check MongoDB connection status
+app.get('/api/debug', (req, res) => {
+  res.json({
+    environment: process.env.NODE_ENV,
+    mongodb_uri: process.env.MONGODB_URI ? 'configured' : 'not configured',
+    db_connected: db ? true : false,
+    api_key_configured: process.env.API_KEY ? 'yes' : 'using default',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Serve static files
