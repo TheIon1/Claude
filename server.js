@@ -5,8 +5,12 @@ const fs = require('fs');
 
 const app = express();
 
-// Enable CORS for frontend requests
-app.use(cors());
+// Enable CORS for frontend requests from GitHub Pages
+app.use(cors({
+  origin: ['https://theion1.github.io', 'http://localhost:3000', 'http://localhost:5000'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 
 // Simple in-memory "database"
 const database = {
