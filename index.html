@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="vercel-url" content="https://claude-git-claude-hello-worl-ab3ca3-iaroslavs-projects-82dcaf9e.vercel.app">
     <title>Hello World</title>
     <style>
         * {
@@ -112,14 +113,19 @@
         // Fetch message from Vercel backend API
         async function fetchMessage() {
             try {
-                // Try multiple possible API URLs
-                const apis = [
-                    '/api/message',  // Local/same origin
-                    'https://api.example.com/api/message',  // Will be replaced with your Vercel URL
-                ];
+                // Detect API URL based on environment
+                let apiUrl = '/api/message';
 
-                // First try local endpoint
-                const response = await fetch('/api/message');
+                // If running on GitHub Pages, use Vercel production URL
+                if (window.location.hostname.includes('github.io')) {
+                    // Get the Vercel production URL from meta tag or config
+                    const vercelUrl = document.querySelector('meta[name="vercel-url"]')?.getAttribute('content');
+                    if (vercelUrl) {
+                        apiUrl = vercelUrl + '/api/message';
+                    }
+                }
+
+                const response = await fetch(apiUrl);
 
                 if (!response.ok) {
                     throw new Error(`API error: ${response.status}`);
