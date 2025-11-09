@@ -125,7 +125,16 @@
                     }
                 }
 
-                const response = await fetch(apiUrl);
+                console.log('Fetching from:', apiUrl);
+
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
 
                 if (!response.ok) {
                     throw new Error(`API error: ${response.status}`);
@@ -153,7 +162,11 @@
                 const errorDiv = document.getElementById('api-message');
                 errorDiv.classList.add('error');
                 errorDiv.style.display = 'block';
-                errorDiv.innerHTML = `API Error: ${error.message}<br>Make sure the backend is deployed on Vercel.`;
+                errorDiv.innerHTML = `
+                    <strong>API Error:</strong> ${error.message}<br>
+                    <small style="color: #999;">Debug: Check browser console (F12) for details</small><br>
+                    <small style="color: #999;">Make sure Vercel backend is deployed and CORS is configured</small>
+                `;
             }
         }
 
