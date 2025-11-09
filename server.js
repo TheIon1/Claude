@@ -74,21 +74,10 @@ const API_KEY = process.env.API_KEY || 'test-key-12345';
 const requireApiKey = (req, res, next) => {
   const providedKey = req.headers['x-api-key'] || req.query.key;
 
-  // Debug logging
-  console.log('API Key Check:');
-  console.log('  Headers:', Object.keys(req.headers));
-  console.log('  Provided Key:', providedKey);
-  console.log('  Expected Key:', API_KEY);
-
   if (!providedKey || providedKey !== API_KEY) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized: Invalid or missing API key',
-      debug: {
-        providedKey: providedKey ? 'received' : 'missing',
-        expectedKey: API_KEY,
-        match: providedKey === API_KEY
-      }
+      error: 'Unauthorized: Invalid or missing API key'
     });
   }
 
@@ -136,17 +125,6 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     mongodb: db ? 'connected' : 'disconnected',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Debug endpoint - check MongoDB connection status
-app.get('/api/debug', (req, res) => {
-  res.json({
-    environment: process.env.NODE_ENV,
-    mongodb_uri: process.env.MONGODB_URI ? 'configured' : 'not configured',
-    db_connected: db ? true : false,
-    api_key_configured: process.env.API_KEY ? 'yes' : 'using default',
     timestamp: new Date().toISOString()
   });
 });
