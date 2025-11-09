@@ -10,7 +10,9 @@ const app = express();
 app.use(cors({
   origin: ['https://theion1.github.io', 'http://localhost:3000', 'http://localhost:5000'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  allowedHeaders: ['Content-Type', 'X-API-Key', 'Accept'],
+  methods: ['GET', 'POST', 'OPTIONS']
 }));
 
 // MongoDB configuration
