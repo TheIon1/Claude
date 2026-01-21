@@ -15,6 +15,7 @@ var character_body: CharacterBody3D = null
 var camera: Camera3D = null
 var sun_light: DirectionalLight3D = null
 var day_night_cycle = null
+var orbital_system = null
 
 func _ready() -> void:
 	# Find the character and camera in the scene
@@ -49,6 +50,11 @@ func _ready() -> void:
 			print("✓ Direction Indicator: Day/night cycle active")
 	else:
 		print("⚠ Direction Indicator: No DirectionalLight3D found (sun compass disabled)")
+
+	# Find the orbital system
+	orbital_system = get_tree().root.find_child("OrbitalSystem", true, false)
+	if orbital_system:
+		print("✓ Direction Indicator: Orbital system found - moon tracking enabled")
 
 	# Make sure this Control fills the screen
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -205,6 +211,14 @@ func draw_compass() -> void:
 	if show_sun and sun_light:
 		draw_sun_on_compass(compass_pos, compass_radius, camera_fwd_xz, camera_right_xz)
 
+	# Draw moon position (from orbital system)
+	if orbital_system:
+		draw_moon_on_compass(compass_pos, compass_radius, camera_fwd_xz, camera_right_xz)
+
+	# Draw orbital info (gravity, distance)
+	if orbital_system:
+		draw_orbital_info(compass_pos, compass_radius)
+
 	# Draw time display (if enabled)
 	if show_time and day_night_cycle:
 		var time_str: String = day_night_cycle.get_time_string()
@@ -310,3 +324,80 @@ func draw_sun_on_compass(compass_pos: Vector2, compass_radius: float, camera_fwd
 		draw_circle(moon_pos, 4.0, Color(0.9, 0.9, 1.0, 0.9))
 		# Moon crescent
 		draw_circle(moon_pos + Vector2(2, -1), 4.0, Color(0.2, 0.2, 0.3, 0.5))
+
+func draw_moon_on_compass(compass_pos: Vector2, compass_radius: float, camera_fwd_xz: Vector2, camera_right_xz: Vector2) -> void:
+	if not orbital_system or not orbital_system.has_method("get_moon_direction_orbital"):
+		return
+
+	# Get moon direction from orbital system
+	var moon_dir_orbital := orbital_system.get_moon_direction_orbital()
+
+	# Project moon direction onto camera axes
+	var moon_forward := moon_dir_orbital.dot(camera_fwd_xz)
+	var moon_right := moon_dir_orbital.dot(camera_right_xz)
+
+	# Calculate screen angle for moon
+	var moon_angle := atan2(-moon_forward, moon_right)
+
+	# Moon is always visible (it's a planet, not dependent on day/night)
+	var moon_pos := compass_pos + Vector2(cos(moon_angle), sin(moon_angle)) * (compass_radius * 0.7)
+
+	# Get eclipse info
+	var eclipse_info = orbital_system.get_eclipse_info()
+	var is_eclipsed: bool = eclipse_info.get("is_eclipsed", false)
+	var eclipse_amount: float = eclipse_info.get("eclipse_amount", 0.0)
+
+	# Moon appearance changes during eclipse
+	var moon_color := Color(0.7, 0.7, 0.8, 0.9)
+	var moon_size := 7.0
+
+	if is_eclipsed:
+		# Moon glows red/orange during eclipse
+		moon_color = Color(1.0, 0.5, 0.2, 0.9).lerp(Color(1.0, 0.3, 0.1, 1.0), eclipse_amount)
+		moon_size = 8.0 + eclipse_amount * 2.0  # Gets bigger during eclipse
+
+		# Draw eclipse glow
+		for i in range(3):
+			var glow_size := moon_size + 5.0 - (i * 1.5)
+			var glow_alpha := (0.4 - (i * 0.1)) * eclipse_amount
+			draw_circle(moon_pos, glow_size, Color(1.0, 0.4, 0.2, glow_alpha))
+
+	# Draw moon body
+	draw_circle(moon_pos, moon_size, moon_color)
+	draw_circle(moon_pos, moon_size - 1, Color(0.9, 0.9, 1.0, 0.9))
+
+	# Draw moon crescent (phases)
+	var crescent_offset := Vector2(moon_size * 0.4, -moon_size * 0.2)
+	draw_circle(moon_pos + crescent_offset, moon_size * 0.7, Color(0.2, 0.2, 0.3, 0.6))
+
+	# Draw eclipse indicator if active
+	if is_eclipsed and show_debug:
+		var eclipse_text_pos := moon_pos + Vector2(0, moon_size + 15)
+		draw_string(ThemeDB.fallback_font, eclipse_text_pos, "ECLIPSE %.0f%%" % (eclipse_amount * 100), HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(1, 0.5, 0.2))
+
+func draw_orbital_info(compass_pos: Vector2, compass_radius: float) -> void:
+	if not orbital_system:
+		return
+
+	# Get orbital data
+	var gravity: float = orbital_system.get_gravity() if orbital_system.has_method("get_gravity") else 9.8
+	var distance: float = orbital_system.get_distance_to_sun() if orbital_system.has_method("get_distance_to_sun") else 0.0
+
+	# Draw orbital info below compass
+	var info_pos := compass_pos + Vector2(0, compass_radius + 70)
+
+	# Gravity indicator
+	var gravity_text := "G: %.1f m/s²" % gravity
+	var gravity_color := Color.WHITE
+	if gravity > 12:
+		gravity_color = Color(1.0, 0.3, 0.3)  # Red if high
+	elif gravity < 7:
+		gravity_color = Color(0.3, 0.6, 1.0)  # Blue if low
+
+	draw_string(ThemeDB.fallback_font, info_pos, gravity_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, gravity_color)
+
+	# Distance indicator
+	if show_debug:
+		var dist_pos := info_pos + Vector2(0, 15)
+		var dist_text := "Distance: %.1f" % distance
+		draw_string(ThemeDB.fallback_font, dist_pos, dist_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.8, 0.8, 0.8))

@@ -8,6 +8,15 @@ const DECELERATION = 4
 @onready var camera: Camera3D = $Target/Camera3D
 @onready var gravity := float(-ProjectSettings.get_setting("physics/3d/default_gravity"))
 @onready var start_position := position
+@onready var orbital_system: Node = null
+
+func _ready() -> void:
+	# Find the orbital system
+	orbital_system = get_tree().root.find_child("OrbitalSystem", true, false)
+	if orbital_system:
+		print("✓ Cubio: Orbital system found - using dynamic gravity")
+	else:
+		print("⚠ Cubio: No orbital system - using default gravity")
 
 
 func _physics_process(delta: float) -> void:
@@ -37,8 +46,16 @@ func _physics_process(delta: float) -> void:
 	if dir.length_squared() > 1:
 		dir /= dir.length()
 
-	# Apply gravity.
-	velocity.y += delta * gravity
+	# Apply gravity (from orbital system if available)
+	var current_gravity := gravity
+	var gravity_dir := Vector3.DOWN
+
+	if orbital_system and orbital_system.has_method("get_gravity"):
+		current_gravity = -orbital_system.get_gravity()  # Negative because we apply downward
+		gravity_dir = orbital_system.get_gravity_direction()
+
+	# Apply gravity in the calculated direction
+	velocity += gravity_dir * abs(current_gravity) * delta
 
 	# Using only the horizontal velocity, interpolate towards the input.
 	var hvel := velocity
