@@ -18,6 +18,16 @@ func _ready() -> void:
 	if player:
 		character_body = player
 		camera = player.get_node_or_null("Target/Camera3D")
+		print("Direction Indicator: Found player and camera")
+	else:
+		# Try alternate method - find by name
+		player = get_tree().root.find_child("Cubio", true, false)
+		if player:
+			character_body = player
+			camera = player.get_node_or_null("Target/Camera3D")
+			print("Direction Indicator: Found player by name 'Cubio'")
+		else:
+			print("Direction Indicator: WARNING - Could not find player!")
 
 	# Make sure this Control fills the screen
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -45,12 +55,18 @@ func draw_movement_arrow(velocity_2d: Vector2) -> void:
 	# Get screen center
 	var screen_center := size / 2.0
 
-	# Calculate arrow direction (from camera perspective)
-	var camera_forward := Vector2(-camera.global_transform.basis.z.x, -camera.global_transform.basis.z.z)
-	var camera_right := Vector2(camera.global_transform.basis.x.x, camera.global_transform.basis.x.z)
+	# Get camera basis vectors (flattened to 2D)
+	var camera_forward := Vector2(-camera.global_transform.basis.z.x, -camera.global_transform.basis.z.z).normalized()
+	var camera_right := Vector2(camera.global_transform.basis.x.x, camera.global_transform.basis.x.z).normalized()
 
-	# Project velocity onto camera space
-	var angle := velocity_2d.angle() - camera_forward.angle()
+	# Transform velocity from world space to camera-relative space
+	# This makes the arrow point in the direction the character moves ON SCREEN
+	var forward_component := velocity_2d.dot(camera_forward)
+	var right_component := velocity_2d.dot(camera_right)
+
+	# Calculate angle for screen-space arrow
+	# Negative forward because screen Y is down, and we want up to be forward
+	var angle := atan2(right_component, -forward_component)
 
 	# Arrow position (bottom center of screen)
 	var arrow_pos := Vector2(screen_center.x, size.y - 120)
