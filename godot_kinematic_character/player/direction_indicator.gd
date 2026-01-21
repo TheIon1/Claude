@@ -207,8 +207,8 @@ func draw_compass() -> void:
 
 	# Draw time display (if enabled)
 	if show_time and day_night_cycle:
-		var time_str := day_night_cycle.get_time_string()
-		var time_of_day := day_night_cycle.get_time_of_day()
+		var time_str: String = day_night_cycle.get_time_string()
+		var time_of_day: String = day_night_cycle.get_time_of_day()
 		var time_pos := compass_pos + Vector2(0, compass_radius + 50)
 		var time_color := Color.WHITE
 		match time_of_day:
