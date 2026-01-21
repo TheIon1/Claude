@@ -6,11 +6,15 @@ extends Control
 @export var arrow_color := Color(1.0, 1.0, 0.0, 0.8)  # Yellow with transparency
 @export var arrow_outline_color := Color(0.0, 0.0, 0.0, 0.8)  # Black outline
 @export var show_compass := true
+@export var show_sun := true  # Show sun position on compass
+@export var show_time := true  # Show current time
 @export var compass_offset := Vector2(80, 80)  # Distance from screen edge
 @export var show_debug := false  # Show debug info
 
 var character_body: CharacterBody3D = null
 var camera: Camera3D = null
+var sun_light: DirectionalLight3D = null
+var day_night_cycle = null
 
 func _ready() -> void:
 	# Find the character and camera in the scene
@@ -34,6 +38,17 @@ func _ready() -> void:
 		print("✓ Direction Indicator: Camera found")
 	else:
 		print("✗ Direction Indicator: Camera NOT found!")
+
+	# Find the sun (DirectionalLight3D)
+	sun_light = get_tree().root.find_child("DirectionalLight3D", true, false)
+	if sun_light:
+		print("✓ Direction Indicator: Sun/DirectionalLight3D found")
+		# Check if it has the day/night cycle script
+		if sun_light.has_method("get_time_string"):
+			day_night_cycle = sun_light
+			print("✓ Direction Indicator: Day/night cycle active")
+	else:
+		print("⚠ Direction Indicator: No DirectionalLight3D found (sun compass disabled)")
 
 	# Make sure this Control fills the screen
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -186,6 +201,27 @@ func draw_compass() -> void:
 	var arrow_right := north_end - Vector2(cos(north_angle + head_angle_offset), sin(north_angle + head_angle_offset)) * arrow_size
 	draw_colored_polygon(PackedVector2Array([arrow_tip, arrow_left, arrow_right]), Color(1, 0, 0, 0.95))
 
+	# Draw sun position (if enabled and sun exists)
+	if show_sun and sun_light:
+		draw_sun_on_compass(compass_pos, compass_radius, camera_fwd_xz, camera_right_xz)
+
+	# Draw time display (if enabled)
+	if show_time and day_night_cycle:
+		var time_str := day_night_cycle.get_time_string()
+		var time_of_day := day_night_cycle.get_time_of_day()
+		var time_pos := compass_pos + Vector2(0, compass_radius + 50)
+		var time_color := Color.WHITE
+		match time_of_day:
+			"sunrise":
+				time_color = Color(1.0, 0.7, 0.3)
+			"day":
+				time_color = Color(1.0, 1.0, 0.6)
+			"sunset":
+				time_color = Color(1.0, 0.5, 0.2)
+			"night":
+				time_color = Color(0.6, 0.7, 1.0)
+		draw_string(ThemeDB.fallback_font, time_pos, time_str, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, time_color)
+
 	# Draw center dot
 	draw_circle(compass_pos, 5.0, Color(0.5, 0.5, 0.5, 0.9))
 	draw_circle(compass_pos, 3.0, Color(1, 1, 1, 0.9))
@@ -214,3 +250,62 @@ func draw_compass() -> void:
 		else:
 			dir_name = "W"
 		draw_string(ThemeDB.fallback_font, compass_pos + Vector2(0, compass_radius + 30), "Cam:%s(%.0f°)" % [dir_name, camera_deg], HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
+
+func draw_sun_on_compass(compass_pos: Vector2, compass_radius: float, camera_fwd_xz: Vector2, camera_right_xz: Vector2) -> void:
+	# Get sun direction in world space
+	var sun_dir_3d := -sun_light.global_transform.basis.z  # Direction sun is pointing
+	var sun_horizontal := Vector2(sun_dir_3d.x, sun_dir_3d.z).normalized()
+	var sun_elevation := sun_dir_3d.y  # How high the sun is (-1 = below horizon, 0 = horizon, 1 = zenith)
+
+	# Project sun direction onto camera axes
+	var sun_forward := sun_horizontal.dot(camera_fwd_xz)
+	var sun_right := sun_horizontal.dot(camera_right_xz)
+
+	# Calculate screen angle for sun
+	var sun_angle := atan2(-sun_forward, sun_right)
+
+	# Only draw sun if it's above horizon
+	if sun_elevation > -0.1:  # Small margin to show sun near horizon
+		# Sun distance from center (based on elevation)
+		# When sun is at zenith (elevation=1), it's at center
+		# When sun is at horizon (elevation=0), it's at edge
+		var sun_distance := compass_radius * 0.6 * (1.0 - sun_elevation)
+
+		var sun_pos := compass_pos + Vector2(cos(sun_angle), sin(sun_angle)) * sun_distance
+
+		# Sun color based on elevation
+		var sun_color := Color.WHITE
+		if sun_elevation < 0.3:  # Near horizon
+			sun_color = Color(1.0, 0.6, 0.2)  # Orange
+		else:
+			sun_color = Color(1.0, 1.0, 0.6)  # Bright yellow
+
+		# Draw sun glow
+		for i in range(3):
+			var glow_size := 12.0 - (i * 3.0)
+			var glow_alpha := 0.3 - (i * 0.1)
+			draw_circle(sun_pos, glow_size, Color(sun_color.r, sun_color.g, sun_color.b, glow_alpha))
+
+		# Draw sun body
+		draw_circle(sun_pos, 6.0, sun_color)
+		draw_circle(sun_pos, 5.0, Color(1.0, 1.0, 1.0, 0.9))
+
+		# Draw sun rays
+		for i in range(8):
+			var ray_angle := sun_angle + (i * TAU / 8.0)
+			var ray_start := sun_pos + Vector2(cos(ray_angle), sin(ray_angle)) * 7
+			var ray_end := sun_pos + Vector2(cos(ray_angle), sin(ray_angle)) * 12
+			draw_line(ray_start, ray_end, sun_color, 2.0)
+
+		# Debug: show sun elevation
+		if show_debug and day_night_cycle:
+			var elev_angle := day_night_cycle.get_sun_elevation()
+			var sun_debug_pos := sun_pos + Vector2(0, -20)
+			draw_string(ThemeDB.fallback_font, sun_debug_pos, "☀%.0f°" % elev_angle, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, sun_color)
+	else:
+		# Sun is below horizon - show moon instead
+		var moon_pos := compass_pos + Vector2(cos(sun_angle + PI), sin(sun_angle + PI)) * (compass_radius * 0.5)
+		draw_circle(moon_pos, 5.0, Color(0.7, 0.7, 0.8, 0.8))
+		draw_circle(moon_pos, 4.0, Color(0.9, 0.9, 1.0, 0.9))
+		# Moon crescent
+		draw_circle(moon_pos + Vector2(2, -1), 4.0, Color(0.2, 0.2, 0.3, 0.5))
