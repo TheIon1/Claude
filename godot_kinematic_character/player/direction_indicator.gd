@@ -199,8 +199,8 @@ func draw_compass() -> void:
 		draw_string(ThemeDB.fallback_font, compass_pos + Vector2(0, compass_radius + 15), "N@%.0f°" % compass_angle_deg, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.RED)
 
 		# Show what direction camera is facing in world
-		# Negate Y (Z axis) so North=0°, East=90°, South=180°, West=270°
-		var camera_world_angle := atan2(camera_fwd_xz.x, -camera_fwd_xz.y)
+		# Negate both X and Z to get correct angles: North=0°, East=90°, South=180°, West=270°
+		var camera_world_angle := atan2(-camera_fwd_xz.x, -camera_fwd_xz.y)
 		var camera_deg := rad_to_deg(camera_world_angle)
 		if camera_deg < 0:
 			camera_deg += 360
