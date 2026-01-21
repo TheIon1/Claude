@@ -299,7 +299,7 @@ func draw_sun_on_compass(compass_pos: Vector2, compass_radius: float, camera_fwd
 
 		# Debug: show sun elevation
 		if show_debug and day_night_cycle:
-			var elev_angle := day_night_cycle.get_sun_elevation()
+			var elev_angle: float = day_night_cycle.get_sun_elevation()
 			var sun_debug_pos := sun_pos + Vector2(0, -20)
 			draw_string(ThemeDB.fallback_font, sun_debug_pos, "☀%.0f°" % elev_angle, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, sun_color)
 	else:
