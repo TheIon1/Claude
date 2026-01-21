@@ -29,7 +29,7 @@ func _ready() -> void:
 	top_level = true
 
 	# Capture mouse for desktop (comment out for mobile)
-	# Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _input(event: InputEvent) -> void:
 	# Handle mouse movement for camera rotation (Desktop)
