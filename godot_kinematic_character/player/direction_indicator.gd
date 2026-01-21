@@ -253,7 +253,8 @@ func draw_compass() -> void:
 
 func draw_sun_on_compass(compass_pos: Vector2, compass_radius: float, camera_fwd_xz: Vector2, camera_right_xz: Vector2) -> void:
 	# Get sun direction in world space
-	var sun_dir_3d := -sun_light.global_transform.basis.z  # Direction sun is pointing
+	# Light's -Z axis points where light SHINES TO, so negate to get where sun IS
+	var sun_dir_3d := sun_light.global_transform.basis.z  # Direction FROM sun (opposite of light direction)
 	var sun_horizontal := Vector2(sun_dir_3d.x, sun_dir_3d.z).normalized()
 	var sun_elevation := sun_dir_3d.y  # How high the sun is (-1 = below horizon, 0 = horizon, 1 = zenith)
 

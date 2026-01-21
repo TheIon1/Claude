@@ -65,8 +65,7 @@ func update_sun_position() -> void:
 
 	# Horizontal angle (azimuth) - sun moves east to west
 	# Add sun_east_direction offset to align with world directions
-	# Add 180° to flip direction (light shines FROM sun, not TOWARD it)
-	var azimuth := time_angle + sun_east_direction - 90.0 + 180.0
+	var azimuth := time_angle + sun_east_direction - 90.0
 
 	# Convert to rotation
 	# Pitch (X rotation): elevation angle
