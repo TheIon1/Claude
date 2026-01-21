@@ -83,9 +83,11 @@ func draw_movement_arrow(velocity_2d: Vector2) -> void:
 	var forward_amount := velocity_2d.dot(camera_forward)
 	var right_amount := velocity_2d.dot(camera_right)
 
-	# Calculate screen angle (atan2 gives us the angle for screen coordinates)
-	# Negate forward because screen Y points down, but we want "forward" to point up
-	var screen_angle := atan2(right_amount, -forward_amount)
+	# Calculate screen angle for the arrow
+	# Forward (W) should point up on screen = angle -PI/2
+	# Right (D) should point right on screen = angle 0
+	# Screen Y points down, so up is negative Y
+	var screen_angle := atan2(-forward_amount, right_amount)
 
 	# Arrow position (bottom center of screen)
 	var arrow_pos := Vector2(screen_center.x, size.y - 120)
@@ -125,7 +127,16 @@ func draw_movement_arrow(velocity_2d: Vector2) -> void:
 	if show_debug:
 		var debug_pos := arrow_pos + Vector2(0, 40)
 		var angle_deg := rad_to_deg(screen_angle)
-		draw_string(ThemeDB.fallback_font, debug_pos, "Angle: %.1f°" % angle_deg, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
+		# Normalize to 0-360 range for easier reading
+		if angle_deg < 0:
+			angle_deg += 360
+		draw_string(ThemeDB.fallback_font, debug_pos, "Angle: %.1f° (↑=-90°/270°)", HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
+
+		# Show velocity components
+		var debug_pos2 := arrow_pos + Vector2(0, 60)
+		var fwd := velocity_2d.dot(Vector2(-camera.global_transform.basis.z.x, -camera.global_transform.basis.z.z).normalized())
+		var rgt := velocity_2d.dot(Vector2(camera.global_transform.basis.x.x, camera.global_transform.basis.x.z).normalized())
+		draw_string(ThemeDB.fallback_font, debug_pos2, "Fwd:%.1f Right:%.1f" % [fwd, rgt], HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
 
 func draw_compass() -> void:
 	if not camera:
@@ -139,12 +150,21 @@ func draw_compass() -> void:
 	draw_circle(compass_pos, compass_radius, Color(0.2, 0.2, 0.2, 0.7))
 	draw_arc(compass_pos, compass_radius, 0, TAU, 32, Color(1, 1, 1, 0.9), 2.5)
 
-	# Get camera forward direction (which way camera is looking)
-	var camera_forward := -camera.global_transform.basis.z
-	# Convert to 2D angle (XZ plane = world horizontal)
-	var camera_angle := atan2(camera_forward.x, camera_forward.z)
-	# North is "forward" in world space (negative Z), so north arrow points opposite to camera forward
-	var north_angle := -camera_angle
+	# Define north in world space (negative Z direction in Godot)
+	var north_world := Vector2(0, -1)  # North in XZ plane
+
+	# Get camera axes in XZ plane
+	var cam_transform := camera.global_transform
+	var camera_fwd_xz := Vector2(-cam_transform.basis.z.x, -cam_transform.basis.z.z).normalized()
+	var camera_right_xz := Vector2(cam_transform.basis.x.x, cam_transform.basis.x.z).normalized()
+
+	# Project north direction onto camera axes (where is north relative to camera?)
+	var north_forward := north_world.dot(camera_fwd_xz)  # How much north is ahead
+	var north_right := north_world.dot(camera_right_xz)  # How much north is to the right
+
+	# Calculate screen angle for north (same method as arrow)
+	# This tells us which direction to draw the north arrow on the compass
+	var north_angle := atan2(-north_forward, north_right)
 
 	# Draw cardinal direction markers
 	for i in range(4):
@@ -173,4 +193,23 @@ func draw_compass() -> void:
 	# Optional: Draw N/S/E/W labels (using circles as placeholders)
 	# For actual text, you'd need to use Label nodes or draw_string with a font
 	if show_debug:
-		draw_string(ThemeDB.fallback_font, compass_pos + Vector2(-10, -compass_radius - 10), "N", HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.RED)
+		var compass_angle_deg := rad_to_deg(north_angle)
+		if compass_angle_deg < 0:
+			compass_angle_deg += 360
+		draw_string(ThemeDB.fallback_font, compass_pos + Vector2(0, compass_radius + 15), "N@%.0f°" % compass_angle_deg, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.RED)
+
+		# Show what direction camera is facing in world
+		var camera_world_angle := atan2(camera_fwd_xz.x, camera_fwd_xz.y)
+		var camera_deg := rad_to_deg(camera_world_angle)
+		if camera_deg < 0:
+			camera_deg += 360
+		var dir_name := ""
+		if camera_deg < 45 or camera_deg >= 315:
+			dir_name = "N"
+		elif camera_deg < 135:
+			dir_name = "E"
+		elif camera_deg < 225:
+			dir_name = "S"
+		else:
+			dir_name = "W"
+		draw_string(ThemeDB.fallback_font, compass_pos + Vector2(0, compass_radius + 30), "Cam:%s(%.0f°)" % [dir_name, camera_deg], HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
