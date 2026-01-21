@@ -1,6 +1,6 @@
-extends Node3D
+extends DirectionalLight3D
 ## Realistic 24-hour day/night cycle with moving sun
-## Attach this to the DirectionalLight3D node
+## This script controls the DirectionalLight3D node it's attached to
 
 # Time settings
 @export var cycle_duration_seconds := 120.0  # Real seconds for full 24h cycle (2 minutes default)
